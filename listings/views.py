@@ -7,7 +7,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
-from listings.models import Listing
+from listings.models import Listing, HotelRoom, HotelRoomType
 from listings.serializers import ListingSerializer, FilterParamSerializer
 
 
@@ -43,17 +43,30 @@ class ListingAPIView(ReadOnlyModelViewSet):
             max_price = data.get('max_price')
             max_price = max_price[0] if isinstance(max_price, list) else max_price
             if check_in and check_out:
-                qs = qs.exclude(
-                        Q(booked_apartment__reserved_from__lte=check_in, booked_apartment__reserved_to__gte=check_in) |
-                        Q(booked_apartment__reserved_from__lte=check_out, booked_apartment__reserved_to__gte=check_out) |
-                        Q(booked_apartment__reserved_from__gte=check_in, booked_apartment__reserved_to__lte=check_out) |
 
-                        Q(hotel_room_types__hotel_rooms__booked_hotel_room__reserved_from__lte=check_in,
-                          hotel_room_types__hotel_rooms__booked_hotel_room__reserved_to__gte=check_in) |
-                        Q(hotel_room_types__hotel_rooms__booked_hotel_room__reserved_from__lte=check_out,
-                          hotel_room_types__hotel_rooms__booked_hotel_room__reserved_to__gte=check_out) |
-                        Q(hotel_room_types__hotel_rooms__booked_hotel_room__reserved_from__gte=check_in,
-                          hotel_room_types__hotel_rooms__booked_hotel_room__reserved_to__lte=check_out))
+                hr = HotelRoom.objects.exclude(
+                    Q(booked_hotel_room__reserved_from__lte=check_in,
+                      booked_hotel_room__reserved_to__gte=check_in) |
+                    Q(booked_hotel_room__reserved_from__lte=check_out,
+                      booked_hotel_room__reserved_to__gte=check_out) |
+                    Q(booked_hotel_room__reserved_from__gte=check_in,
+                      booked_hotel_room__reserved_to__lte=check_out)
+                ).values_list('pk', flat=True)
+
+                qs = Listing.objects.filter(hotel_room_types__hotel_rooms__pk__in=hr).distinct()
+
+                # qs = qs.exclude(
+                #         Q(booked_apartment__reserved_from__lte=check_in, booked_apartment__reserved_to__gte=check_in) |
+                #         Q(booked_apartment__reserved_from__lte=check_out, booked_apartment__reserved_to__gte=check_out) |
+                #         Q(booked_apartment__reserved_from__gte=check_in, booked_apartment__reserved_to__lte=check_out) |
+                #
+                #         Q(hotel_room_types__hotel_rooms__booked_hotel_room__reserved_from__lte=check_in,
+                #           hotel_room_types__hotel_rooms__booked_hotel_room__reserved_to__gte=check_in) |
+                #         Q(hotel_room_types__hotel_rooms__booked_hotel_room__reserved_from__lte=check_out,
+                #           hotel_room_types__hotel_rooms__booked_hotel_room__reserved_to__gte=check_out) |
+                #         Q(hotel_room_types__hotel_rooms__booked_hotel_room__reserved_from__gte=check_in,
+                #           hotel_room_types__hotel_rooms__booked_hotel_room__reserved_to__lte=check_out)
+                # )
 
             if max_price:
                 qs = qs.filter(booking_info__price__lt=max_price)
