@@ -51,11 +51,8 @@ class ListingAPIView(ReadOnlyModelViewSet):
                       booked_hotel_room__reserved_to__gte=check_out) |
                     Q(booked_hotel_room__reserved_from__gte=check_in,
                       booked_hotel_room__reserved_to__lte=check_out)
-                ).select_related('hotel_room_type__hotel')
-                print(hr.values_list('hotel_room_type__pk').distinct())
-                hr = hr.values_list('hotel_room_type__hotel__pk', flat=True).distinct()
-                print(hr)
-                print("qs filter ", qs.filter(Q(listing_type='hotel', pk__in=hr)))
+                ).select_related('hotel_room_type__hotel').values_list('hotel_room_type__hotel__pk', flat=True).distinct()
+
                 qs = qs.filter(Q(listing_type='hotel', pk__in=hr) | Q(listing_type='apartment')).exclude(
                         Q(booked_apartment__reserved_from__lte=check_in, booked_apartment__reserved_to__gte=check_in) |
                         Q(booked_apartment__reserved_from__lte=check_out, booked_apartment__reserved_to__gte=check_out) |
